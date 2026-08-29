@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "Personal Budget",
+    "slug": "personal-budget-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "personalbudget",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.santana.personalbudget"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.santana.personalbudget"
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
