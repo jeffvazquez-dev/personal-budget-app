@@ -38,10 +38,16 @@ export default async function DashboardPage() {
           </div>
           <div className="flex items-center gap-4">
             <Link
+              href="/transactions"
+              className="text-sm text-gray-500 hover:text-gray-800 dark:hover:text-gray-200"
+            >
+              Transactions
+            </Link>
+            <Link
               href="/transactions/new"
               className="text-sm font-medium text-blue-600 hover:text-blue-700"
             >
-              + Add transaction
+              + Add
             </Link>
             <form action="/auth/signout" method="post">
               <button
@@ -75,7 +81,17 @@ export default async function DashboardPage() {
 
         {/* Category breakdown */}
         <section>
-          <h2 className="text-lg font-semibold mb-4">By category</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold">By category</h2>
+            {summary.categoryTotals.length > 0 && (
+              <Link
+                href="/transactions"
+                className="text-sm text-blue-600 hover:text-blue-700"
+              >
+                View all
+              </Link>
+            )}
+          </div>
 
           {summary.categoryTotals.length === 0 ? (
             <div className="rounded-xl border border-dashed border-gray-300 dark:border-gray-700 p-10 text-center">
