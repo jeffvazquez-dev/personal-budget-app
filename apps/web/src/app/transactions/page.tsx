@@ -33,7 +33,6 @@ export default async function TransactionsPage({ searchParams }: Props) {
     getTransactions({ year, month }),
   ]);
 
-  // Client-side style filtering (data already month-scoped)
   let transactions = allTransactions;
 
   if (params.category) {
@@ -62,7 +61,6 @@ export default async function TransactionsPage({ searchParams }: Props) {
   return (
     <main className="min-h-screen p-6 md:p-8">
       <div className="max-w-4xl mx-auto">
-        {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Transactions</h1>
@@ -76,6 +74,12 @@ export default async function TransactionsPage({ searchParams }: Props) {
               Dashboard
             </Link>
             <Link
+              href="/transactions/import"
+              className="text-sm text-gray-500 hover:text-gray-800 dark:hover:text-gray-200"
+            >
+              Import
+            </Link>
+            <Link
               href="/transactions/new"
               className="rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-3 py-1.5"
             >
@@ -84,7 +88,6 @@ export default async function TransactionsPage({ searchParams }: Props) {
           </div>
         </div>
 
-        {/* Filters */}
         <TransactionFilters
           categories={categories}
           accounts={accounts}
@@ -94,16 +97,23 @@ export default async function TransactionsPage({ searchParams }: Props) {
           currentQuery={params.q}
         />
 
-        {/* List */}
         {transactions.length === 0 ? (
           <div className="mt-8 rounded-xl border border-dashed border-gray-300 dark:border-gray-700 p-10 text-center">
             <p className="text-gray-500 mb-3">No transactions found.</p>
-            <Link
-              href="/transactions/new"
-              className="inline-block text-sm font-medium text-blue-600 hover:text-blue-700"
-            >
-              Add a transaction
-            </Link>
+            <div className="flex justify-center gap-4">
+              <Link
+                href="/transactions/new"
+                className="text-sm font-medium text-blue-600 hover:text-blue-700"
+              >
+                Add a transaction
+              </Link>
+              <Link
+                href="/transactions/import"
+                className="text-sm font-medium text-blue-600 hover:text-blue-700"
+              >
+                Import CSV
+              </Link>
+            </div>
           </div>
         ) : (
           <div className="mt-4 space-y-1">
