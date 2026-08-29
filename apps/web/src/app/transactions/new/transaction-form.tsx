@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { Category, Account } from "@/lib/types";
@@ -13,30 +13,78 @@ interface Props {
 
 export function TransactionForm({ categories, accounts, householdId }: Props) {
   const router = useRouter();
+  const amountRef = useRef<HTMLInputElement>(null);
+
+  const [type, setType] = useState<"income" | "expense">("expense");
+  const [amount, setAmount] = useState("");
+  const [categoryId, setCategoryId] = useState("");
+  const [accountId, setAccountId] = useState(accounts[0]?.id ?? "");
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [merchant, setMerchant] = useState("");
+  const [description, setDescription] = useState("");
+  const [addAnother, setAddAnother] = useState(false);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
-  const expenseCategories = categories.filter((c) => c.type === "expense");
-  const incomeCategories = categories.filter((c) => c.type === "income");
+  // Focus amount on mount and after "add another"
+  useEffect(() => {
+    amountRef.current?.focus();
+  }, [success]);
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  // Hierarchical category options for the current type
+  const categoryOptions = useMemo(() => {
+    const filtered = categories.filter((c) => c.type === type);
+    const parents = filtered.filter((c) => !c.parent_id);
+    const children = filtered.filter((c) => c.parent_id);
+
+    const options: { id: string; label: string; isParent: boolean }[] = [];
+
+    for (const parent of parents) {
+      const kids = children.filter((c) => c.parent_id === parent.id);
+      if (kids.length > 0) {
+        // Parent as group header (not selectable if it has children)
+        options.push({ id: parent.id, label: parent.name, isParent: true });
+        for (const kid of kids) {
+          options.push({ id: kid.id, label: `  ${kid.name}`, isParent: false });
+        }
+      } else {
+        options.push({ id: parent.id, label: parent.name, isParent: false });
+      }
+    }
+
+    // Orphan children (no parent in list)
+    const parentIds = new Set(parents.map((p) => p.id));
+    for (const child of children) {
+      if (!parentIds.has(child.parent_id!)) {
+        options.push({ id: child.id, label: child.name, isParent: false });
+      }
+    }
+
+    return options;
+  }, [categories, type]);
+
+  // Reset category when type changes
+  useEffect(() => {
+    setCategoryId("");
+  }, [type]);
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setSuccess(null);
 
-    const form = e.currentTarget;
-    const formData = new FormData(form);
-
-    const type = formData.get("type") as "income" | "expense";
-    const amount = Math.abs(parseFloat(formData.get("amount") as string));
-    const categoryId = formData.get("category_id") as string;
-    const accountId = formData.get("account_id") as string;
-    const date = formData.get("date") as string;
-    const merchant = (formData.get("merchant_name") as string) || null;
-    const description = (formData.get("description") as string) || null;
-
-    if (!amount || amount <= 0) {
+    const parsedAmount = Math.abs(parseFloat(amount));
+    if (!parsedAmount || parsedAmount <= 0) {
       setError("Amount must be greater than zero");
+      setLoading(false);
+      return;
+    }
+
+    if (!accountId) {
+      setError("Please select an account");
       setLoading(false);
       return;
     }
@@ -46,11 +94,11 @@ export function TransactionForm({ categories, accounts, householdId }: Props) {
       household_id: householdId,
       account_id: accountId,
       category_id: categoryId || null,
-      amount: type === "expense" ? -amount : amount,
+      amount: type === "expense" ? -parsedAmount : parsedAmount,
       type,
       date,
-      merchant_name: merchant,
-      description,
+      merchant_name: merchant.trim() || null,
+      description: description.trim() || null,
     });
 
     setLoading(false);
@@ -60,74 +108,114 @@ export function TransactionForm({ categories, accounts, householdId }: Props) {
       return;
     }
 
-    router.push("/dashboard");
-    router.refresh();
+    if (addAnother) {
+      // Keep type, account, date — clear amount + merchant for speed
+      setAmount("");
+      setMerchant("");
+      setDescription("");
+      setSuccess("Saved! Add another below.");
+      amountRef.current?.focus();
+    } else {
+      router.push("/dashboard");
+      router.refresh();
+    }
   }
-
-  const today = new Date().toISOString().slice(0, 10);
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-      {/* Type */}
+      {success && (
+        <div className="rounded-lg bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-300 text-sm px-4 py-3">
+          {success}
+        </div>
+      )}
+
+      {/* Type toggle */}
       <div>
-        <label className="block text-sm font-medium mb-1">Type</label>
-        <select
-          name="type"
-          required
-          defaultValue="expense"
-          className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-transparent px-3 py-2"
-        >
-          <option value="expense">Expense</option>
-          <option value="income">Income</option>
-        </select>
+        <label className="block text-sm font-medium mb-1.5">Type</label>
+        <div className="flex rounded-lg border border-gray-300 dark:border-gray-700 overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setType("expense")}
+            className={`flex-1 py-2 text-sm font-medium transition-colors ${
+              type === "expense"
+                ? "bg-red-600 text-white"
+                : "bg-transparent text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-900"
+            }`}
+          >
+            Expense
+          </button>
+          <button
+            type="button"
+            onClick={() => setType("income")}
+            className={`flex-1 py-2 text-sm font-medium transition-colors ${
+              type === "income"
+                ? "bg-green-600 text-white"
+                : "bg-transparent text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-900"
+            }`}
+          >
+            Income
+          </button>
+        </div>
       </div>
 
       {/* Amount */}
       <div>
-        <label className="block text-sm font-medium mb-1">Amount</label>
-        <input
-          name="amount"
-          type="number"
-          step="0.01"
-          min="0.01"
-          required
-          placeholder="0.00"
-          className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-transparent px-3 py-2"
-        />
+        <label htmlFor="amount" className="block text-sm font-medium mb-1.5">
+          Amount
+        </label>
+        <div className="relative">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+          <input
+            ref={amountRef}
+            id="amount"
+            type="number"
+            step="0.01"
+            min="0.01"
+            required
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            placeholder="0.00"
+            className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-transparent pl-7 pr-3 py-2.5 text-lg font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
       </div>
 
-      {/* Category */}
+      {/* Category - hierarchical */}
       <div>
-        <label className="block text-sm font-medium mb-1">Category</label>
+        <label htmlFor="category" className="block text-sm font-medium mb-1.5">
+          Category
+        </label>
         <select
-          name="category_id"
-          className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-transparent px-3 py-2"
+          id="category"
+          value={categoryId}
+          onChange={(e) => setCategoryId(e.target.value)}
+          className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-transparent px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="">Uncategorized</option>
-          <optgroup label="Expenses">
-            {expenseCategories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.parent_id ? "— " : ""}{c.name}
-              </option>
-            ))}
-          </optgroup>
-          <optgroup label="Income">
-            {incomeCategories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </optgroup>
+          {categoryOptions.map((opt) => (
+            <option
+              key={opt.id}
+              value={opt.isParent ? "" : opt.id}
+              disabled={opt.isParent}
+              className={opt.isParent ? "font-semibold" : ""}
+            >
+              {opt.label}
+            </option>
+          ))}
         </select>
       </div>
 
       {/* Account */}
       <div>
-        <label className="block text-sm font-medium mb-1">Account</label>
+        <label htmlFor="account" className="block text-sm font-medium mb-1.5">
+          Account
+        </label>
         <select
-          name="account_id"
+          id="account"
           required
-          className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-transparent px-3 py-2"
+          value={accountId}
+          onChange={(e) => setAccountId(e.target.value)}
+          className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-transparent px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           {accounts.map((a) => (
             <option key={a.id} value={a.id}>
@@ -139,53 +227,75 @@ export function TransactionForm({ categories, accounts, householdId }: Props) {
 
       {/* Date */}
       <div>
-        <label className="block text-sm font-medium mb-1">Date</label>
+        <label htmlFor="date" className="block text-sm font-medium mb-1.5">
+          Date
+        </label>
         <input
-          name="date"
+          id="date"
           type="date"
           required
-          defaultValue={today}
-          className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-transparent px-3 py-2"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-transparent px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
 
       {/* Merchant */}
       <div>
-        <label className="block text-sm font-medium mb-1">Merchant / Payee</label>
+        <label htmlFor="merchant" className="block text-sm font-medium mb-1.5">
+          Merchant / Payee
+        </label>
         <input
-          name="merchant_name"
+          id="merchant"
           type="text"
+          value={merchant}
+          onChange={(e) => setMerchant(e.target.value)}
           placeholder="e.g. Publix, Shell, Payroll"
-          className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-transparent px-3 py-2"
+          className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-transparent px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
 
-      {/* Description */}
+      {/* Notes */}
       <div>
-        <label className="block text-sm font-medium mb-1">Notes (optional)</label>
+        <label htmlFor="notes" className="block text-sm font-medium mb-1.5">
+          Notes <span className="text-gray-400 font-normal">(optional)</span>
+        </label>
         <input
-          name="description"
+          id="notes"
           type="text"
-          className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-transparent px-3 py-2"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-transparent px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
+
+      {/* Add another */}
+      <label className="flex items-center gap-2 cursor-pointer select-none">
+        <input
+          type="checkbox"
+          checked={addAnother}
+          onChange={(e) => setAddAnother(e.target.checked)}
+          className="rounded border-gray-300"
+        />
+        <span className="text-sm">Add another transaction after saving</span>
+      </label>
 
       {error && (
         <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
       )}
 
-      <div className="flex gap-3 pt-2">
+      <div className="flex gap-3 pt-1">
         <button
           type="submit"
           disabled={loading}
           className="flex-1 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium py-2.5 transition-colors"
         >
-          {loading ? "Saving..." : "Save transaction"}
+          {loading ? "Saving..." : addAnother ? "Save & add another" : "Save transaction"}
         </button>
         <button
           type="button"
           onClick={() => router.push("/dashboard")}
-          className="rounded-lg border border-gray-300 dark:border-gray-700 px-4 py-2.5 text-sm"
+          className="rounded-lg border border-gray-300 dark:border-gray-700 px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-900"
         >
           Cancel
         </button>
