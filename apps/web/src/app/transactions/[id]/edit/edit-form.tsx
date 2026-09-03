@@ -57,7 +57,6 @@ export function EditTransactionForm({
     return options;
   }, [categories, type]);
 
-  // Clear category if it doesn't match the new type
   useEffect(() => {
     if (!categoryId) return;
     const cat = categories.find((c) => c.id === categoryId);
@@ -124,7 +123,6 @@ export function EditTransactionForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-      {/* Type toggle */}
       <div>
         <label className="block text-sm font-medium mb-1.5">Type</label>
         <div className="flex rounded-lg border border-gray-300 dark:border-gray-700 overflow-hidden">
@@ -153,7 +151,6 @@ export function EditTransactionForm({
         </div>
       </div>
 
-      {/* Amount */}
       <div>
         <label htmlFor="amount" className="block text-sm font-medium mb-1.5">
           Amount
@@ -175,7 +172,6 @@ export function EditTransactionForm({
         </div>
       </div>
 
-      {/* Category */}
       <div>
         <label htmlFor="category" className="block text-sm font-medium mb-1.5">
           Category
@@ -199,7 +195,6 @@ export function EditTransactionForm({
         </select>
       </div>
 
-      {/* Account */}
       <div>
         <label htmlFor="account" className="block text-sm font-medium mb-1.5">
           Account
@@ -219,7 +214,6 @@ export function EditTransactionForm({
         </select>
       </div>
 
-      {/* Date */}
       <div>
         <label htmlFor="date" className="block text-sm font-medium mb-1.5">
           Date
@@ -234,7 +228,6 @@ export function EditTransactionForm({
         />
       </div>
 
-      {/* Merchant */}
       <div>
         <label htmlFor="merchant" className="block text-sm font-medium mb-1.5">
           Merchant / Payee
@@ -244,11 +237,10 @@ export function EditTransactionForm({
           type="text"
           value={merchant}
           onChange={(e) => setMerchant(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-transparent px-3 py-2.5 focus:outline-none focus:ring- ste-2 focus:ring-blue-500"
+          className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-transparent px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
 
-      {/* Notes */}
       <div>
         <label htmlFor="notes" className="block text-sm font-medium mb-1.5">
           Notes <span className="text-gray-400 font-normal">(optional)</span>
@@ -283,7 +275,6 @@ export function EditTransactionForm({
         </button>
       </div>
 
-      {/* Delete zone */}
       <div className="pt-6 border-t border-gray-200 dark:border-gray-800">
         {!confirmDelete ? (
           <button
