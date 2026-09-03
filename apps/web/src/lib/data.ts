@@ -74,3 +74,21 @@ export async function getTransactions(options?: {
   }
   return data ?? [];
 }
+
+export async function getTransactionById(
+  id: string
+): Promise<Transaction | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("transactions")
+    .select("*")
+    .eq("id", id)
+    .is("deleted_at", null)
+    .single();
+
+  if (error) {
+    console.error("Error fetching transaction:", error);
+    return null;
+  }
+  return data;
+}
