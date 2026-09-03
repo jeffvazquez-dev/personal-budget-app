@@ -2,9 +2,14 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCategories, getTransactions } from "@/lib/data";
 import { monthlySummary, formatMoney } from "@/lib/calculations";
+import { MonthNav } from "@/components/month-nav";
 import Link from "next/link";
 
-export default async function DashboardPage() {
+interface Props {
+  searchParams: Promise<{ year?: string; month?: string }>;
+}
+
+export default async function DashboardPage({ searchParams }: Props) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -14,9 +19,10 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
+  const params = await searchParams;
   const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth() + 1;
+  const year = params.year ? parseInt(params.year, 10) : now.getFullYear();
+  const month = params.month ? parseInt(params.month, 10) : now.getMonth() + 1;
 
   const [categories, transactions] = await Promise.all([
     getCategories(),
@@ -25,20 +31,24 @@ export default async function DashboardPage() {
 
   const summary = monthlySummary(transactions, categories, year, month);
 
-  const monthName = now.toLocaleString("en-US", { month: "long", year: "numeric" });
+  const txHref = `/transactions?year=${year}&month=${month}`;
 
   return (
     <main className="min-h-screen p-6 md:p-8">
       <div className="max-w-5xl mx-auto">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Dashboard</h1>
-            <p className="text-sm text-gray-500 mt-1">{monthName}</p>
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
+              Dashboard
+            </h1>
+            <div className="mt-2">
+              <MonthNav year={year} month={month} basePath="/dashboard" />
+            </div>
           </div>
           <div className="flex items-center gap-4">
             <Link
-              href="/transactions"
+              href={txHref}
               className="text-sm text-gray-500 hover:text-gray-800 dark:hover:text-gray-200"
             >
               Transactions
@@ -85,7 +95,7 @@ export default async function DashboardPage() {
             <h2 className="text-lg font-semibold">By category</h2>
             {summary.categoryTotals.length > 0 && (
               <Link
-                href="/transactions"
+                href={txHref}
                 className="text-sm text-blue-600 hover:text-blue-700"
               >
                 View all
