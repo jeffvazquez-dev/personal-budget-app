@@ -7,6 +7,7 @@ import type { Category, Account } from "@/lib/types";
 interface Props {
   categories: Category[];
   accounts: Account[];
+  currentYear: number;
   currentMonth: number;
   currentCategory?: string;
   currentAccount?: string;
@@ -16,6 +17,7 @@ interface Props {
 export function TransactionFilters({
   categories,
   accounts,
+  currentYear,
   currentMonth,
   currentCategory,
   currentAccount,
@@ -27,43 +29,25 @@ export function TransactionFilters({
   const updateParams = useCallback(
     (key: string, value: string) => {
       const params = new URLSearchParams(window.location.search);
+      // Always keep year/month in the URL
+      params.set("year", String(currentYear));
+      params.set("month", String(currentMonth));
       if (value) {
         params.set(key, value);
       } else {
         params.delete(key);
       }
-      // Reset to page context
-      const qs = params.toString();
-      router.push(qs ? `${pathname}?${qs}` : pathname);
+      router.push(`${pathname}?${params.toString()}`);
     },
-    [router, pathname]
+    [router, pathname, currentYear, currentMonth]
   );
 
-  const months = Array.from({ length: 12 }, (_, i) => ({
-    value: String(i + 1),
-    label: new Date(2026, i).toLocaleString("en-US", { month: "short" }),
-  }));
-
-  // Hierarchical category options
   const expenseCats = categories.filter((c) => c.type === "expense");
   const parents = expenseCats.filter((c) => !c.parent_id);
   const children = expenseCats.filter((c) => c.parent_id);
 
   return (
     <div className="flex flex-wrap gap-2 items-center">
-      {/* Month */}
-      <select
-        value={currentMonth}
-        onChange={(e) => updateParams("month", e.target.value)}
-        className="rounded-lg border border-gray-300 dark:border-gray-700 bg-transparent px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-      >
-        {months.map((m) => (
-          <option key={m.value} value={m.value}>
-            {m.label}
-          </option>
-        ))}
-      </select>
-
       {/* Category */}
       <select
         value={currentCategory ?? ""}
@@ -111,18 +95,12 @@ export function TransactionFilters({
         type="search"
         placeholder="Search merchant..."
         defaultValue={currentQuery ?? ""}
-        onChange={(e) => {
-          // Debounce-like: update on blur or enter via form would be better,
-          // but simple onChange with small delay is fine for MVP
-          const value = e.target.value;
-          const timeout = setTimeout(() => updateParams("q", value), 300);
-          return () => clearTimeout(timeout);
-        }}
         onKeyDown={(e) => {
           if (e.key === "Enter") {
             updateParams("q", (e.target as HTMLInputElement).value);
           }
         }}
+        onBlur={(e) => updateParams("q", e.target.value)}
         className="rounded-lg border border-gray-300 dark:border-gray-700 bg-transparent px-2.5 py-1.5 text-sm w-40 focus:outline-none focus:ring-2 focus:ring-blue-500"
       />
     </div>
