@@ -2,11 +2,13 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getCategories, getAccounts, getTransactions } from "@/lib/data";
-import { formatMoney } from "@/lib/calculations";
+import { MonthNav } from "@/components/month-nav";
 import { TransactionFilters } from "./transaction-filters";
+import { TransactionRow } from "./transaction-row";
 
 interface Props {
   searchParams: Promise<{
+    year?: string;
     month?: string;
     category?: string;
     account?: string;
@@ -24,7 +26,7 @@ export default async function TransactionsPage({ searchParams }: Props) {
 
   const params = await searchParams;
   const now = new Date();
-  const year = now.getFullYear();
+  const year = params.year ? parseInt(params.year, 10) : now.getFullYear();
   const month = params.month ? parseInt(params.month, 10) : now.getMonth() + 1;
 
   const [categories, accounts, allTransactions] = await Promise.all([
@@ -53,22 +55,28 @@ export default async function TransactionsPage({ searchParams }: Props) {
   const categoryMap = new Map(categories.map((c) => [c.id, c.name]));
   const accountMap = new Map(accounts.map((a) => [a.id, a.name]));
 
-  const monthLabel = new Date(year, month - 1).toLocaleString("en-US", {
-    month: "long",
-    year: "numeric",
-  });
-
   return (
     <main className="min-h-screen p-6 md:p-8">
       <div className="max-w-4xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Transactions</h1>
-            <p className="text-sm text-gray-500 mt-0.5">{monthLabel}</p>
+            <div className="mt-2">
+              <MonthNav
+                year={year}
+                month={month}
+                basePath="/transactions"
+                extraParams={{
+                  category: params.category,
+                  account: params.account,
+                  q: params.q,
+                }}
+              />
+            </div>
           </div>
           <div className="flex items-center gap-3">
             <Link
-              href="/dashboard"
+              href={`/dashboard?year=${year}&month=${month}`}
               className="text-sm text-gray-500 hover:text-gray-800 dark:hover:text-gray-200"
             >
               Dashboard
@@ -91,6 +99,7 @@ export default async function TransactionsPage({ searchParams }: Props) {
         <TransactionFilters
           categories={categories}
           accounts={accounts}
+          currentYear={year}
           currentMonth={month}
           currentCategory={params.category}
           currentAccount={params.account}
@@ -117,55 +126,26 @@ export default async function TransactionsPage({ searchParams }: Props) {
           </div>
         ) : (
           <div className="mt-4 space-y-1">
-            {transactions.map((tx) => {
-              const isExpense = tx.type === "expense";
-              const isIncome = tx.type === "income";
-              return (
-                <div
-                  key={tx.id}
-                  className="flex items-center justify-between rounded-lg border border-gray-200 dark:border-gray-800 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium truncate">
-                        {tx.merchant_name || tx.description || "Untitled"}
-                      </p>
-                      {tx.is_pending && (
-                        <span className="text-xs bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300 px-1.5 py-0.5 rounded">
-                          pending
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      {tx.date}
-                      {tx.category_id && (
-                        <> · {categoryMap.get(tx.category_id) ?? "Unknown"}</>
-                      )}
-                      {tx.account_id && (
-                        <> · {accountMap.get(tx.account_id) ?? ""}</>
-                      )}
-                    </p>
-                  </div>
-                  <p
-                    className={`font-semibold tabular-nums ml-4 ${
-                      isIncome
-                        ? "text-green-600 dark:text-green-400"
-                        : isExpense
-                          ? "text-gray-900 dark:text-gray-100"
-                          : "text-gray-500"
-                    }`}
-                  >
-                    {isIncome ? "+" : isExpense ? "−" : ""}
-                    {formatMoney(Math.abs(Number(tx.amount)))}
-                  </p>
-                </div>
-              );
-            })}
+            {transactions.map((tx) => (
+              <TransactionRow
+                key={tx.id}
+                tx={tx}
+                categoryName={
+                  tx.category_id
+                    ? categoryMap.get(tx.category_id)
+                    : undefined
+                }
+                accountName={
+                  tx.account_id ? accountMap.get(tx.account_id) : undefined
+                }
+              />
+            ))}
           </div>
         )}
 
         <p className="mt-6 text-xs text-gray-400">
-          {transactions.length} transaction{transactions.length !== 1 ? "s" : ""}
+          {transactions.length} transaction
+          {transactions.length !== 1 ? "s" : ""}
         </p>
       </div>
     </main>
