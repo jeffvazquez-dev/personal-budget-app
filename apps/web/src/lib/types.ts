@@ -91,3 +91,13 @@ export interface MonthlySummary {
   net: number;
   categoryTotals: CategoryTotal[];
 }
+
+export interface BudgetProgress {
+  categoryId: string;
+  categoryName: string;
+  budgetAmount: number;
+  spent: number;
+  remaining: number;
+  percent: number; // 0-100+ (can exceed 100 when over)
+  isOver: boolean;
+}
