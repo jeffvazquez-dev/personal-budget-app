@@ -18,16 +18,27 @@ export async function getCurrentProfile() {
   return profile;
 }
 
-export async function getCategories(): Promise<Category[]> {
+export async function getCategories(options?: {
+  includeArchived?: boolean;
+}): Promise<Category[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("categories")
-    .select("*")
-    .order("sort_order");
+  let query = supabase.from("categories").select("*").order("sort_order");
+
+  if (!options?.includeArchived) {
+    // is_archived may not exist until migration runs; tolerate missing via filter only when set
+    query = query.or("is_archived.is.null,is_archived.eq.false");
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     console.error("Error fetching categories:", error);
-    return [];
+    // Fallback without archive filter if column missing
+    const { data: fallback } = await supabase
+      .from("categories")
+      .select("*")
+      .order("sort_order");
+    return fallback ?? [];
   }
   return data ?? [];
 }
