@@ -33,40 +33,36 @@ export function AccountsClient({ initialAccounts, initialItems }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const onSuccess = useCallback(
-    async (public_token: string) => {
-      setBusy(true);
-      setError(null);
-      setMessage(null);
-      try {
-        const res = await fetch("/api/plaid/exchange-token", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ public_token }),
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          setError(
-            typeof data.error === "string"
-              ? data.error
-              : JSON.stringify(data.error)
-          );
-        } else {
-          setMessage(
-            data.message ||
-              `Connected ${data.accounts?.length ?? 0} account(s)`
-          );
-          window.location.reload();
-        }
-      } catch {
-        setError("Network error during token exchange");
-      } finally {
-        setBusy(false);
-        setLinkToken(null);
+  const onSuccess = useCallback(async (public_token: string) => {
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const res = await fetch("/api/plaid/exchange-token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ public_token }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(
+          typeof data.error === "string"
+            ? data.error
+            : JSON.stringify(data.error)
+        );
+      } else {
+        setMessage(
+          data.message || `Connected ${data.accounts?.length ?? 0} account(s)`
+        );
+        window.location.reload();
       }
-    },
-    []
-  );
+    } catch {
+      setError("Network error during token exchange");
+    } finally {
+      setBusy(false);
+      setLinkToken(null);
+    }
+  }, []);
 
   const { open, ready } = usePlaidLink({
     token: linkToken,
@@ -78,9 +74,7 @@ export function AccountsClient({ initialAccounts, initialItems }: Props) {
   });
 
   useEffect(() => {
-    if (linkToken && ready) {
-      open();
-    }
+    if (linkToken && ready) open();
   }, [linkToken, ready, open]);
 
   async function connectBank() {
@@ -88,9 +82,7 @@ export function AccountsClient({ initialAccounts, initialItems }: Props) {
     setError(null);
     setMessage(null);
     try {
-      const res = await fetch("/api/plaid/create-link-token", {
-        method: "POST",
-      });
+      const res = await fetch("/api/plaid/create-link-token", { method: "POST" });
       const data = await res.json();
       if (!res.ok) {
         setError(
@@ -109,24 +101,16 @@ export function AccountsClient({ initialAccounts, initialItems }: Props) {
   }
 
   async function toggleSelected(account: AccountRow) {
-    const next = account.is_selected === false ? true : false;
-    // if undefined/true → turn off; if false → turn on
-    const newValue = account.is_selected === false;
+    const currentlySelected = account.is_selected !== false;
+    const flipped = !currentlySelected;
     const supabase = createClient();
     const { error: updError } = await supabase
-      .from("accounts")
-      .update({ is_selected: !account.is_selected && account.is_selected !== false ? false : newValue || account.is_selected === false })
-      .eq("id", account.id);
-
-    // Simpler: flip boolean treating undefined as true
-    const flipped = !(account.is_selected !== false);
-    const { error: updError2 } = await supabase
       .from("accounts")
       .update({ is_selected: flipped })
       .eq("id", account.id);
 
-    if (updError2) {
-      setError(updError2.message);
+    if (updError) {
+      setError(updError.message);
       return;
     }
 
@@ -135,8 +119,6 @@ export function AccountsClient({ initialAccounts, initialItems }: Props) {
         a.id === account.id ? { ...a, is_selected: flipped } : a
       )
     );
-    void updError;
-    void next;
   }
 
   async function syncTransactions() {
