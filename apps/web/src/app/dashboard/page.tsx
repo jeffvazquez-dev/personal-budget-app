@@ -61,6 +61,12 @@ export default async function DashboardPage({ searchParams }: Props) {
               Review
             </Link>
             <Link
+              href="/accounts"
+              className="text-sm text-gray-500 hover:text-gray-800 dark:hover:text-gray-200"
+            >
+              Accounts
+            </Link>
+            <Link
               href="/categories"
               className="text-sm text-gray-500 hover:text-gray-800 dark:hover:text-gray-200"
             >
