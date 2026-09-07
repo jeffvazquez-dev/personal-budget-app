@@ -1,8 +1,13 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getCategories, getTransactions } from "@/lib/data";
-import { monthlySummary, formatMoney } from "@/lib/calculations";
+import { getCategories, getTransactions, getBudgets } from "@/lib/data";
+import {
+  monthlySummary,
+  formatMoney,
+  budgetProgress,
+} from "@/lib/calculations";
 import { MonthNav } from "@/components/month-nav";
+import { BudgetProgressList } from "@/components/budget-progress-list";
 import Link from "next/link";
 
 interface Props {
@@ -24,14 +29,17 @@ export default async function DashboardPage({ searchParams }: Props) {
   const year = params.year ? parseInt(params.year, 10) : now.getFullYear();
   const month = params.month ? parseInt(params.month, 10) : now.getMonth() + 1;
 
-  const [categories, transactions] = await Promise.all([
+  const [categories, transactions, budgets] = await Promise.all([
     getCategories(),
     getTransactions({ year, month }),
+    getBudgets(year, month),
   ]);
 
   const summary = monthlySummary(transactions, categories, year, month);
+  const progress = budgetProgress(budgets, summary.categoryTotals, categories);
 
   const txHref = `/transactions?year=${year}&month=${month}`;
+  const budgetsHref = `/budgets?year=${year}&month=${month}`;
 
   return (
     <main className="min-h-screen p-6 md:p-8">
@@ -47,6 +55,12 @@ export default async function DashboardPage({ searchParams }: Props) {
             </div>
           </div>
           <div className="flex items-center gap-4">
+            <Link
+              href={budgetsHref}
+              className="text-sm text-gray-500 hover:text-gray-800 dark:hover:text-gray-200"
+            >
+              Budgets
+            </Link>
             <Link
               href={txHref}
               className="text-sm text-gray-500 hover:text-gray-800 dark:hover:text-gray-200"
@@ -88,6 +102,35 @@ export default async function DashboardPage({ searchParams }: Props) {
             tone={summary.net >= 0 ? "positive" : "negative"}
           />
         </div>
+
+        {/* Budget progress */}
+        <section className="mb-10">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold">Budgets</h2>
+            <Link
+              href={budgetsHref}
+              className="text-sm text-blue-600 hover:text-blue-700"
+            >
+              {progress.length === 0 ? "Set budgets" : "Edit"}
+            </Link>
+          </div>
+
+          {progress.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-gray-300 dark:border-gray-700 p-8 text-center">
+              <p className="text-gray-500 mb-3 text-sm">
+                No budgets set for this month yet.
+              </p>
+              <Link
+                href={budgetsHref}
+                className="inline-block rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2"
+              >
+                Set monthly budgets
+              </Link>
+            </div>
+          ) : (
+            <BudgetProgressList items={progress} />
+          )}
+        </section>
 
         {/* Category breakdown */}
         <section>
