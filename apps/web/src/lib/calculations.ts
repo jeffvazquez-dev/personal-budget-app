@@ -1,4 +1,11 @@
-import type { Transaction, Category, CategoryTotal, MonthlySummary } from "./types";
+import type {
+  Transaction,
+  Category,
+  CategoryTotal,
+  MonthlySummary,
+  Budget,
+  BudgetProgress,
+} from "./types";
 
 /**
  * Pure calculation engine.
@@ -90,6 +97,49 @@ export function monthlySummary(
     net,
     categoryTotals: totals,
   };
+}
+
+/** Spent vs budget targets for expense categories */
+export function budgetProgress(
+  budgets: Budget[],
+  categoryTotals: CategoryTotal[],
+  categories: Category[]
+): BudgetProgress[] {
+  const spentMap = new Map(
+    categoryTotals
+      .filter((c) => c.type === "expense")
+      .map((c) => [c.categoryId, c.total])
+  );
+
+  const results: BudgetProgress[] = [];
+
+  for (const budget of budgets) {
+    const cat = categories.find((c) => c.id === budget.category_id);
+    if (!cat || cat.type !== "expense") continue;
+
+    const budgetAmount = Number(budget.amount);
+    if (budgetAmount <= 0) continue;
+
+    const spent = spentMap.get(budget.category_id) ?? 0;
+    const remaining = budgetAmount - spent;
+    const percent = (spent / budgetAmount) * 100;
+
+    results.push({
+      categoryId: budget.category_id,
+      categoryName: cat.name,
+      budgetAmount,
+      spent,
+      remaining,
+      percent,
+      isOver: spent > budgetAmount,
+    });
+  }
+
+  // Over-budget first, then highest % used
+  return results.sort((a, b) => {
+    if (a.isOver !== b.isOver) return a.isOver ? -1 : 1;
+    return b.percent - a.percent;
+  });
 }
 
 /** Format cents-safe money display */
