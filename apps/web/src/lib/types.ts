@@ -27,6 +27,7 @@ export interface Account {
   plaid_account_id: string | null;
   plaid_item_id: string | null;
   is_active: boolean;
+  is_selected?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -56,7 +57,7 @@ export interface Transaction {
   description: string | null;
   merchant_name: string | null;
   notes: string | null;
-  date: string; // YYYY-MM-DD
+  date: string;
   type: TransactionType;
   transfer_pair_id: string | null;
   plaid_transaction_id: string | null;
@@ -73,7 +74,7 @@ export interface Budget {
   household_id: string;
   category_id: string;
   amount: number;
-  month: string; // first day of month YYYY-MM-DD
+  month: string;
   created_at: string;
   updated_at: string;
 }
@@ -99,6 +100,6 @@ export interface BudgetProgress {
   budgetAmount: number;
   spent: number;
   remaining: number;
-  percent: number; // 0-100+ (can exceed 100 when over)
+  percent: number;
   isOver: boolean;
 }
