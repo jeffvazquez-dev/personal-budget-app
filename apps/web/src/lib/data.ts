@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import type { Transaction, Category, Account } from "./types";
+import type { Transaction, Category, Account, Budget } from "./types";
 
 export async function getCurrentProfile() {
   const supabase = await createClient();
@@ -91,4 +91,21 @@ export async function getTransactionById(
     return null;
   }
   return data;
+}
+
+/** month is first day of month as YYYY-MM-DD */
+export async function getBudgets(year: number, month: number): Promise<Budget[]> {
+  const supabase = await createClient();
+  const monthKey = `${year}-${String(month).padStart(2, "0")}-01`;
+
+  const { data, error } = await supabase
+    .from("budgets")
+    .select("*")
+    .eq("month", monthKey);
+
+  if (error) {
+    console.error("Error fetching budgets:", error);
+    return [];
+  }
+  return data ?? [];
 }
