@@ -44,7 +44,6 @@ export default async function DashboardPage({ searchParams }: Props) {
   return (
     <main className="min-h-screen p-6 md:p-8">
       <div className="max-w-5xl mx-auto">
-        {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
@@ -54,7 +53,13 @@ export default async function DashboardPage({ searchParams }: Props) {
               <MonthNav year={year} month={month} basePath="/dashboard" />
             </div>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 flex-wrap">
+            <Link
+              href="/review"
+              className="text-sm text-amber-600 hover:text-amber-700"
+            >
+              Review
+            </Link>
             <Link
               href={budgetsHref}
               className="text-sm text-gray-500 hover:text-gray-800 dark:hover:text-gray-200"
@@ -84,7 +89,6 @@ export default async function DashboardPage({ searchParams }: Props) {
           </div>
         </div>
 
-        {/* Summary cards */}
         <div className="grid gap-4 sm:grid-cols-3 mb-10">
           <SummaryCard
             label="Income"
@@ -103,7 +107,6 @@ export default async function DashboardPage({ searchParams }: Props) {
           />
         </div>
 
-        {/* Budget progress */}
         <section className="mb-10">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold">Budgets</h2>
@@ -132,7 +135,6 @@ export default async function DashboardPage({ searchParams }: Props) {
           )}
         </section>
 
-        {/* Category breakdown */}
         <section>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold">By category</h2>
