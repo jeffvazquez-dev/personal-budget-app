@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { usePlaidLink } from "react-plaid-link";
 import { createClient } from "@/lib/supabase/client";
@@ -15,15 +15,19 @@ interface PlaidItemRow {
   created_at: string;
 }
 
+interface AccountRow extends Account {
+  is_selected?: boolean;
+}
+
 interface Props {
-  initialAccounts: Account[];
+  initialAccounts: AccountRow[];
   initialItems: PlaidItemRow[];
 }
 
 export function AccountsClient({ initialAccounts, initialItems }: Props) {
   const router = useRouter();
   const [accounts, setAccounts] = useState(initialAccounts);
-  const [items, setItems] = useState(initialItems);
+  const [items] = useState(initialItems);
   const [linkToken, setLinkToken] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -42,31 +46,44 @@ export function AccountsClient({ initialAccounts, initialItems }: Props) {
         });
         const data = await res.json();
         if (!res.ok) {
-          setError(data.error || "Exchange failed");
+          setError(
+            typeof data.error === "string"
+              ? data.error
+              : JSON.stringify(data.error)
+          );
         } else {
           setMessage(
             data.message ||
               `Connected ${data.accounts?.length ?? 0} account(s)`
           );
-          router.refresh();
           window.location.reload();
         }
       } catch {
         setError("Network error during token exchange");
       } finally {
         setBusy(false);
+        setLinkToken(null);
       }
     },
-    [router]
+    []
   );
 
   const { open, ready } = usePlaidLink({
     token: linkToken,
     onSuccess,
-    onExit: () => setBusy(false),
+    onExit: () => {
+      setBusy(false);
+      setLinkToken(null);
+    },
   });
 
-  async function startLink() {
+  useEffect(() => {
+    if (linkToken && ready) {
+      open();
+    }
+  }, [linkToken, ready, open]);
+
+  async function connectBank() {
     setBusy(true);
     setError(null);
     setMessage(null);
@@ -76,48 +93,50 @@ export function AccountsClient({ initialAccounts, initialItems }: Props) {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || "Could not create link token");
+        setError(
+          typeof data.error === "string"
+            ? data.error
+            : JSON.stringify(data.error)
+        );
         setBusy(false);
         return;
       }
       setLinkToken(data.link_token);
-      // open after token is set — usePlaidLink needs a re-render
-      setTimeout(() => open(), 100);
     } catch {
       setError("Network error creating link token");
       setBusy(false);
     }
   }
 
-  // When linkToken arrives and ready, allow open via button
-  async function connectBank() {
-    if (linkToken && ready) {
-      open();
-      return;
-    }
-    await startLink();
-  }
-
-  async function toggleSelected(account: Account) {
-    const next = !(account as Account & { is_selected?: boolean }).is_selected;
+  async function toggleSelected(account: AccountRow) {
+    const next = account.is_selected === false ? true : false;
+    // if undefined/true → turn off; if false → turn on
+    const newValue = account.is_selected === false;
     const supabase = createClient();
     const { error: updError } = await supabase
       .from("accounts")
-      .update({ is_selected: next })
+      .update({ is_selected: !account.is_selected && account.is_selected !== false ? false : newValue || account.is_selected === false })
       .eq("id", account.id);
 
-    if (updError) {
-      setError(updError.message);
+    // Simpler: flip boolean treating undefined as true
+    const flipped = !(account.is_selected !== false);
+    const { error: updError2 } = await supabase
+      .from("accounts")
+      .update({ is_selected: flipped })
+      .eq("id", account.id);
+
+    if (updError2) {
+      setError(updError2.message);
       return;
     }
 
     setAccounts((prev) =>
       prev.map((a) =>
-        a.id === account.id
-          ? ({ ...a, is_selected: next } as Account & { is_selected: boolean })
-          : a
+        a.id === account.id ? { ...a, is_selected: flipped } : a
       )
     );
+    void updError;
+    void next;
   }
 
   async function syncTransactions() {
@@ -132,7 +151,11 @@ export function AccountsClient({ initialAccounts, initialItems }: Props) {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || "Sync failed");
+        setError(
+          typeof data.error === "string"
+            ? data.error
+            : JSON.stringify(data.error)
+        );
       } else {
         setMessage(data.message);
         router.refresh();
@@ -177,7 +200,6 @@ export function AccountsClient({ initialAccounts, initialItems }: Props) {
         </p>
       )}
 
-      {/* Linked institutions */}
       <section>
         <h2 className="text-sm font-semibold mb-3">Linked institutions</h2>
         {items.length === 0 ? (
@@ -198,7 +220,11 @@ export function AccountsClient({ initialAccounts, initialItems }: Props) {
                 <div className="text-xs text-gray-500 mt-0.5">
                   Status: {item.status}
                   {item.last_synced_at && (
-                    <> · Last sync {new Date(item.last_synced_at).toLocaleString()}</>
+                    <>
+                      {" "}
+                      · Last sync{" "}
+                      {new Date(item.last_synced_at).toLocaleString()}
+                    </>
                   )}
                 </div>
               </li>
@@ -207,7 +233,6 @@ export function AccountsClient({ initialAccounts, initialItems }: Props) {
         )}
       </section>
 
-      {/* Account selection */}
       <section>
         <h2 className="text-sm font-semibold mb-1">Plaid accounts</h2>
         <p className="text-xs text-gray-500 mb-3">
@@ -219,8 +244,7 @@ export function AccountsClient({ initialAccounts, initialItems }: Props) {
         ) : (
           <div className="rounded-xl border border-gray-200 dark:border-gray-800 divide-y divide-gray-100 dark:divide-gray-800">
             {plaidAccounts.map((a) => {
-              const selected =
-                (a as Account & { is_selected?: boolean }).is_selected !== false;
+              const selected = a.is_selected !== false;
               return (
                 <label
                   key={a.id}
@@ -264,8 +288,12 @@ export function AccountsClient({ initialAccounts, initialItems }: Props) {
         </p>
         <ul className="list-disc list-inside space-y-1">
           <li>Institution: any (e.g. First Platypus Bank)</li>
-          <li>Username: <code className="text-xs">user_good</code></li>
-          <li>Password: <code className="text-xs">pass_good</code></li>
+          <li>
+            Username: <code className="text-xs">user_good</code>
+          </li>
+          <li>
+            Password: <code className="text-xs">pass_good</code>
+          </li>
         </ul>
         <p>
           After connecting, click <strong>Sync transactions</strong>, then open{" "}
